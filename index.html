@@ -6,7 +6,8 @@
     <title>Բառախաղ v17 - Smart Auto-Stop</title>
     <style>
         body { background-color: #121212; display: flex; flex-direction: column; align-items: center; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; margin: 0; }
-        #players-container { display: flex; flex-direction: column-reverse; gap: 20px; margin-top: 20px; width: 100%; align-items: center; }
+        
+        #players-container { display: flex; flex-direction: column; gap: 20px; margin-top: 20px; width: 100%; align-items: center; }
         
         .card { 
             background-color: #000; 
@@ -20,7 +21,19 @@
             flex-direction: column; 
             box-sizing: border-box; 
             overflow: hidden; 
-            transition: all 0.5s ease;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            order: 2;
+        }
+
+        .card.frozen { 
+            filter: grayscale(1) opacity(0.4); 
+            order: 1;
+            pointer-events: none;
+        }
+        
+        .card.playoff-participant { 
+            order: 3;
+            border-color: #ff4d4d;
         }
 
         .card.winner-glow { border-color: #d4ff00; box-shadow: 0 0 30px #d4ff00; transform: scale(1.02); }
@@ -76,11 +89,12 @@
             100% { transform: scale(1); }
         }
 
-        .btn-group { display: flex; gap: 12px; margin: 20px 0; }
-        button { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; padding: 12px 22px; font-size: 16px; transition: 0.2s; }
+        /* Կոճակների փոքրացված ոճը */
+        .btn-group { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; justify-content: center; }
+        button { border: none; border-radius: 10px; font-weight: bold; cursor: pointer; padding: 8px 14px; font-size: 13px; transition: 0.2s; white-space: nowrap; }
         
-        .alphabet-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; background: #000; padding: 15px; border-radius: 18px; border: 1px solid #333; }
-        .alphabet-letter { font-size: 14px; color: #555; text-align: center; font-weight: bold; }
+        .alphabet-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; background: #000; padding: 10px; border-radius: 15px; border: 1px solid #333; }
+        .alphabet-letter { font-size: 12px; color: #555; text-align: center; font-weight: bold; width: 20px; }
         .letter-used { text-decoration: line-through; color: #ff4d4d; opacity: 0.3; }
 
         #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 999; }
@@ -89,7 +103,7 @@
 </head>
 <body>
 
-    <button style="background: #d4ff00; color: #000; font-size: 18px;" id="add-btn">➕ Ավելացնել խաղացող</button>
+    <button style="background: #d4ff00; color: #000; font-size: 16px; padding: 10px 20px;" id="add-btn">➕ Ավելացնել խաղացող</button>
     <div id="players-container"></div>
 
     <div class="game-controls">
@@ -98,6 +112,7 @@
             <button style="background: #ff9800; color: white;" id="round-btn">🔄 ՌԱՈՒՆԴ</button>
             <button style="background: #007bff; color: white;" id="letter-btn">🎲 ՏԱՌ</button>
             <button style="background: #fff; color: #000;" id="auto-btn">⚡ ԱՎՏՈ</button>
+            <button style="background: #ff4d4d; color: white;" id="playoff-btn">🏆 PLAY-OFF</button>
         </div>
         <div class="alphabet-grid" id="alphabet-display"></div>
     </div>
@@ -120,7 +135,7 @@
         let playerCount = 0;
 
         const allWords = [
-            "ԱՐԵՎԱԾԱՂԻԿ", "ՀԱՆՐԱՊԵՏՈՒԹՅՈՒՆ", "ԳԻՏՈՒԹՅՈՒՆ", "ՁՅՈՒՆԱՄԱՐԴ", "ԾԱՂԿԱՇՂԹԱ", "ԴՊՐՈՑԱԿԱՆ", "ԳԱՐՆԱՆԱՅԻՆ", "ՀԵՌԱԽՈՍ", "ՊԱՏՈՒՀԱՆ", "ՍԵՂԱՆԱՏԱՄ", "ԲԱՆԱՍՏԵՂԾ", "ԱՆԿԱԽՈՒԹՅՈՒՆ", "ՃԱՆԱՊԱՐՀՈՐԴ", "ԳՐԱՏԱԽՏԱԿ", "ՀԱՄԱԿԱՐԳԻՉ", "ԵՐԿՆԱՔԵՐ", "ԱՐՇԱՎԱԽՈՒՄԲ", "ԳԵՂԱՆԿԱՐ", "ԼՈՒՍԱՄՓՈՓ", "ՄԱՅՐԱՔԱՂԱՔ", "ԱՍՏՂԱԳԻՏՈՒԹՅՈՒՆ", "ԲԺՇԿԱԿԱՆ", "ԳՈՐԾԱՐԱՆ", "ԴԱՍԱԽՈՍ", "ԵՐԱԺՇՏՈՒԹՅՈՒՆ", "ԶԱՆԳԱԿԱՏՈՒՆ", "ԷՆԵՐԳԻԱ", "ԸՆԿԵՐՈՒԹՅՈՒՆ", "ԹԱՆԳԱՐԱՆ", "ԺԱՄԱՆԱԿԱՑՈՒՅՑ", "ԻՆՔՆԱԹԻՌ", "ԼՈՒՍԱՆԿԱՐ", "ԽԱՂԱՂՈՒԹՅՈՒՆ", "ԾԻԱԾԱՆ", "ԿԱՅԱՐԱՆ", "ՀԱՄԱԼՍԱՐԱՆ", "ՁԵՌՆԱՐԿՈՒԹՅՈՒՆ", "ՂԵԿԱՎԱՐՈՒՄ", "ՃԱՐՏԱՐԱՊԵՏ", "ՄԱՆԿԱՊԱՐՏԵԶ", "ՅՈՒՐԱՀԱՏՈՒԿ", "ՆԱՎԱՀԱՆԳԻՍՏ", "ՇՈՒԿԱՅԱԳԻՏՈՒԹՅՈՒՆ", "ՈՒՍՈՒՄՆԱՍԻՐՈՒԹՅՈՒՆ", "ՉԱՓԱԳԻՏՈՒԹՅՈՒՆ", "ՊԱՏՄՈՒԹՅՈՒՆ", "ՋՐՎԵԺ", "ՌԱԶՄԱԳԻՏՈՒԹՅՈՒՆ", "ՍԱՀՄԱՆԱԴՐՈՒԹՅՈՒՆ", "ՎԱՐԴԱՊԵՏ", "ՏԵՍԱՐԺԱՆ", "ՐԱՖՖԻ", "ՑՈՒՑԱՀԱՆԴԵՍ", "ՓՈՍՏԱՏԱՐ", "ՔԱՂԱՔԱԿԱՆ", "ՕԴԱՆԱՎԱԿԱՅԱՆ", "ԱԼԵՀԱՎԱՔ", "ԱԽՈՐԺԱԿ", "ԱԿՆԱԲՈՒԺԱԿԱՆ", "ԱՂՅՈՒՍԱԿ", "ԱՄԵՆԱԼԱՎ", "ԱՄԱՆՈՐՅԱ", "ԱՅԳԵՊԱՆ", "ԱՆԱԿՆԿԱԼ", "ԱՆՀԱՏԱԿԱՆ", "ԱՆՎՏԱՆԳՈՒԹՅՈՒՆ", "ԱՇԽԱՏԱՍԵՆՅԱԿ", "ԱՊԱԿԵՊԱՏ", "ԱՌԱՋԱԴՐԱՆՔ", "ԱՍՏՂԱՇՈՂ", "ԱՎՏՈՄԵՔԵՆԱ", "ԱՐԳԵԼԱՓԱԿՈՒՄ", "ԱՐԴՅՈՒՆԱԲԵՐՈՒԹՅՈՒՆ", "ԱՐՁԱԿՈՒՐԴ", "ԱՐՍԵՆԱԼ", "ԱՐՏԱԴՐՈՒԹՅՈՒՆ", "ԱՔՍԵՍՈՒԱՐ", "ԲԱԶՄԱԶԱՆՈՒԹՅՈՒՆ", "ԲԱԺԱՆՈՐԴԱԳՐՈՒՄ", "ԲԱՆԱԿԱՆՈՒԹՅՈՒՆ", "ԲԱՆԿԱՅԻՆ", "ԲԱՑԱՀԱՅՏՈՒՄ", "ԲԱՐԵԿԱՄՈՒԹՅՈՒՆ", "ԲԱՐՁՐԱԽՈՍ", "ԲԵՄԱԴՐՈՒԹՅՈՒՆ", "ԲԻԶՆԵՍ", "ԲՆԱՊԱՀՊԱՆԱԿԱՆ", "ԲՈՒԺՍՊԱՍԱՐԿՈՒՄ", "ԳԱՂՏՆԱԲԱՌ", "ԳԱՆՁԱՊԱՀ", "ԳԱՐԵՋՈՒՐ", "ԳԵՂԱՐՎԵՍՏԱԿԱՆ", "ԳԻՏԱԿԱՆ", "ԳԼՈՒԽԳՈՐԾՈՑ", "ԳՈՎԱԶԴԱՅԻՆ", "ԳՈՒՆԱՎՈՐՈՒՄ", "ԳՐԱԴԱՐԱՆԱՎԱՐ", "ԳՐԱԿԱՆՈՒԹՅՈՒՆ", "ԴԱՀԼԻՃ", "ԴԱՄԲԱՐԱՆ", "ԴԱՇՆԱՄՈՒՐ", "ԴԱՍԱԽՈՍ", "ԴԱՏԱՎՈՐ", "ԴԱՐՊԱՍԱՊԱՀ", "ԴԵՂԱՏՈՒՆ", "ԴԵՍՊԱՆԱՏՈՒՆ", "ԴԻԱԳՐԱՄ", "ԴԻՄԱՀԱՐԴԱՐՈՒՄ", "ԴԻՎԱՆԱԳԻՏՈՒԹՅՈՒՆ", "ԴՐԱՄԱՏՈՒՆ", "ԵԿԱՄՈՒՏ", "ԵԿԵՂԵՑԻ", "ԵՂԱՆԱԿ", "ԵՐԱԺԻՇՏ", "ԵՐԿՐԱԲԱՆ", "ԵՐԿՐԱՉԱՓՈՒԹՅՈՒՆ", "ԵՐՋԱՆԿՈՒԹՅՈՒՆ", "ԶԱՆԳՎԱԾԱՅԻՆ", "ԶԱՐԳԱՑՈՒՄ", "ԶԲՈՍԱՇՐՋԻԿ", "ԶԻՆՎՈՐԱԿԱՆ", "ԶՈՒԳԱՀԵՌ", "ԷՎՈԼՅՈՒՑԻԱ", "ԸՆԴՈՒՆԵԼՈՒԹՅՈՒՆ", "ԸՆՏԱՆԵԿԱՆ", "ԹԱԳԱՎՈՐՈՒԹՅՈՒՆ", "ԹԱՐԳՄԱՆԻՉ", "ԹԱՓՈՆՆԵՐ", "ԹԵՐԹ", "ԹՎԱՅԻՆ", "ԻՆՏԵՐՆԵՏ", "ԻՐԱՎԱԲԱՆ", "ԼԱԲՈՐԱՏՈՐԻԱ", "ԼԱՎԱՏԵՍՈՒԹՅՈՒՆ", "ԼԵԶՎԱԲԱՆ", "ԼՈՒՍԱՎՈՐՈՒԹՅՈՒՆ", "ԽԱՂԱՂԱՍԵՐ", "ԽԱՀԱՆՈՑ", "ԽԵԼԱՑԻ", "ԽՄԲԱԳԻՐ", "ԽՈՐՀՐԴԱՏՈՒ", "ԾԱՆՈԹՈՒԹՅՈՒՆ", "ԾԱՌԱՅՈՒԹՅՈՒՆ", "ԾՐԱԳՐԱՎՈՐՈՂ", "ԿԱԶՄԱԿԵՐՊՈՒԹՅՈՒՆ", "ԿԱԼՈՐԻԱ", "ԿԱՆՈՆԱԴՐՈՒԹՅՈՒՆ", "ԿԱՊԻՏԱԼ", "ԿԱՐԱՎԱՐՈՒԹՅՈՒՆ", "ԿԵՆՍԱԲԱՆ", "ԿԻՆՈԹԱՏՐՈՆ", "ԿՈՄՊՈԶԻՏՈՐ", "ԿՐԹԱԿԱՆ", "ՀԱԳՈՒՍՏ", "ՀԱՄԱԳՈՐԾԱԿՑՈՒԹՅՈՒՆ", "ՀԱՄԱԿԱՐԳՈՒՄ", "ՀԱՄԱՅՆՔ", "ՀԱՄԱՐՁԱԿ", "ՀԱՅՏԱՐԱՐՈՒԹՅՈՒՆ", "ՀԱՆԴԻՊՈՒՄ", "ՀԱՆԴԻՍԱՏԵՍ", "ՀԱՆՃԱՐԵՂ", "ՀԱՇՎԱՊԱՀՈՒԹՅՈՒՆ", "ՀԱՍԱՐԱԿՈՒԹՅՈՒՆ", "ՀԱՎԱՍԱՐՈՒԹՅՈՒՆ", "ՀԵՌՈՒՍՏԱՑՈՒՅՑ", "ՀԵՏԱԶՈՏՈՒԹՅՈՒՆ", "ՀԵՏԱՔՐՔԻՐ", "ՀԻՎԱՆԴԱՆՈՑ", "ՀՈԳԵԲԱՆ", "ՀՈՒՇԱՐՁԱՆ", "ՁԵՌԱԳԻՐ", "ՁԵՌՆԱՐԿ", "ՁՈՒԿ", "ՂԵԿԱՎԱՐ", "ՃԱՆԱՊԱՐՀ", "ՃԱՐՏԱՐԱԳԵՏ", "ՄԱԿԱՐԴԱԿ", "ՄԱԿԱՐՈՆ", "ՄԱՀՃԱԿԱԼ", "ՄԱՆՐԱԴԻՏԱԿ", "ՄԱՐԴԱՍԻՐՈՒԹՅՈՒՆ", "ՄԱՐԶԱԴԱՇՏ", "ՄԱՐՏԱԿԱՆ", "ՄԵՔԵՆԱՅԱԿԱՆ", "ՄԻՋՈՑԱՌՈՒՄ", "ՄՇԱԿՈՒՅԹ", "ՄՈԼՈՐԱԿ", "ՆԱԽԱԳԱՀ", "ՆԱԽԱԳԻԾ", "ՆԱԽԱՃԱՇ", "ՆԵՐԿԱՅԱՑՈՒՄ", "ՆԿԱՐՉՈՒԹՅՈՒՆ", "ՆՈՐՈՒԹՅՈՒՆ", "ՆՎԱԳԱԽՈՒՄԲ", "ՇԱԲԱԹԱԿԱՆ", "ՇԱՀՈՒՅԹ", "ՇԵՆՔ", "ՇԻՆԱՐԱՐ", "ՇՆՈՐՀԱԿԱԼ", "ՈԼՈՐՏ", "ՈՍՏԻԿԱՆ", "ՈՒՂԵՎՈՐ", "ՈՒՍՈՒՑԻՉ", "ՉԱՓԱՆԻՇ", "ՊԱՀԱՆՋԱՐԿ", "ՊԱՇՏՊԱՆՈՒԹՅՈՒՆ", "ՊԱՏԱՍԽԱՆ", "ՊԱՏՐԱՍՏՈՒՄ", "ՊԱՐԱՊՄՈՒՆՔ", "ՊԵՏՈՒԹՅՈՒՆ", "ՊՐՈՖԵՍՈՐ", "ՋԵՐՄՈՒԹՅՈՒՆ", "ՌԵԱԿՑԻԱ", "ՍԱՀՄԱՆԱԴՐԱԿԱՆ", "ՍԵՓԱԿԱՆՈՒԹՅՈՒՆ", "ՍՏԵՂԾԱԳՈՐԾ", "ՎԱՐՈՐԴ", "ՎԻՃԱԿԱԳՐՈՒԹՅՈՒՆ", "ՎԻՐԱԲՈՒԺ", "ՏԱՍՆԱՄՅԱԿ", "ՏԱՐԱԾԱՇՐՋԱՆ", "ՏԵՂԵԿԱՏՎՈՒԹՅՈՒՆ", "ՏԵՍԱՆՅՈՒԹ", "ՏՈՆԱԿԱՆ", "ՏՈՒՐԻԶՄ", "ՑՈՒՑԱԿ", "ՈՒՐԱԽՈՒԹՅՈՒՆ", "ՓՈՓՈԽՈՒԹՅՈՒՆ", "ՔԱՂԱՔԱՑԻ", "ՔԻՄԻԱԿԱՆ", "ՕԳՏԱԿԱՐ", "ՖԻԶԻԿԱ", "ՖՈՒՏԲՈԼԻՍՏ"
+            "ԱՐԵՎԱԾԱՂԻԿ", "ՀԱՆՐԱՊԵՏՈՒԹՅՈՒՆ", "ԳԻՏՈՒԹՅՈՒՆ", "ՁՅՈՒՆԱՄԱՐԴ", "ԾԱՂԿԱՇՂԹԱ", "ԴՊՐՈՑԱԿԱՆ", "ԳԱՐՆԱՆԱՅԻՆ", "ՀԵՌԱԽՈՍ", "ՊԱՏՈՒՀԱՆ", "ՍԵՂԱՆԱՏԱՄ", "ԲԱՆԱՍՏԵՂԾ", "ԱՆԿԱԽՈՒԹՅՈՒՆ", "ՃԱՆԱՊԱՐՀՈՐԴ", "ԳՐԱՏԱԽՏԱԿ", "ՀԱՄԱԿԱՐԳԻՉ", "ԵՐԿՆԱՔԵՐ", "ԱՐՇԱՎԱԽՈՒՄԲ", "ԳԵՂԱՆԿԱՐ", "ԼՈՒՍԱՄՓՈՓ", "ՄԱՅՐԱՔԱՂԱՔ", "ԱՍՏՂԱԳԻՏՈՒԹՅՈՒՆ", "ԲԺՇԿԱԿԱՆ", "ԳՈՐԾԱՐԱՆ", "ԴԱՍԱԽՈՍ", "ԵՐԱԺՇՏՈՒԹՅՈՒՆ", "ԶԱՆԳԱԿԱՏՈՒՆ", "ԷՆԵՐԳԻԱ", "ԸՆԿԵՐՈՒԹՅՈՒՆ", "ԹԱՆԳԱՐԱՆ", "ԺԱՄԱՆԱԿԱՑՈՒՅՑ", "ԻՆՔՆԱԹԻՌ", "ԼՈՒՍԱՆԿԱՐ", "ԽԱՂԱՂՈՒԹՅՈՒՆ", "ԾԻԱԾԱՆ", "ԿԱՅԱՐԱՆ", "ՀԱՄԱԼՍԱՐԱՆ", "ՁԵՌՆԱՐԿՈՒԹՅՈՒՆ", "ՂԵԿԱՎԱՐՈՒՄ", "ՃԱՐՏԱՐԱՊԵՏ", "ՄԱՆԿԱՊԱՐՏԵԶ", "ՅՈՒՐԱՀԱՏՈՒԿ", "ՆԱՎԱՀԱՆԳԻՍՏ", "ՇՈՒԿԱՅԱԳԻՏՈՒԹՅՈՒՆ", "ՈՒՍՈՒՄՆԱՍԻՐՈՒԹՅՈՒՆ", "ՉԱՓԱԳԻՏՈՒԹՅՈՒՆ", "ՊԱՏՄՈՒԹՅՈՒՆ", "ՋՐՎԵԺ", "ՌԱԶՄԱԳԻՏՈՒԹՅՈՒՆ", "ՍԱՀՄԱՆԱԴՐՈՒԹՅՈՒՆ", "ՎԱՐԴԱՊԵՏ", "ՏԵՍԱՐԺԱՆ", "ՐԱՖՖԻ", "ՑՈՒՑԱՀԱՆԴԵՍ", "ՓՈՍՏԱՏԱՐ", "ՔԱՂԱՔԱԿԱՆ", "ՕԴԱՆԱՎԱԿԱՅԱՆ", "ԱԼԵՀԱՎԱՔ", "ԱԽՈՐԺԱԿ", "ԱԿՆԱԲՈՒԺԱԿԱՆ", "ԱՂՅՈՒՍԱԿ", "ԱՄԵՆԱԼԱՎ", "ԱՄԱՆՈՐՅԱ", "ԱՅԳԵՊԱՆ", "ԱՆԱԿՆԿԱԼ", "ԱՆՀԱՏԱԿԱՆ", "ԱՆՎՏԱՆԳՈՒԹՅՈՒՆ", "ԱՇԽԱՏԱՍԵՆՅԱԿ", "ԱՊԱԿԵՊԱՏ", "ԱՌԱՋԱԴՐԱՆՔ", "ԱՍՏՂԱՇՈՂ", "ԱՎՏՈՄԵՔԵՆԱ", "ԱՐԳԵԼԱՓԱԿՈՒՄ", "ԱՐԴՅՈՒՆԱԲԵՐՈՒԹՅՈՒՆ", "ԱՐՁԱԿՈՒՐԴ", "ԱՐՍԵՆԱԼ", "ԱՐՏԱԴՐՈՒԹՅՈՒՆ", "ԱՔՍԵՍՈՒԱՐ", "ԲԱԶՄԱԶԱՆՈՒԹՅՈՒՆ", "ԲԱԺԱՆՈՐԴԱԳՐՈՒՄ", "ԲԱՆԱԿԱՆՈՒԹՅՈՒՆ", "ԲԱՆԿԱՅԻՆ", "ԲԱՑԱՀԱՅՏՈՒՄ", "ԲԱՐԵԿԱՄՈՒԹՅՈՒՆ", "ԲԱՐՁՐԱԽՈՍ", "ԲԵՄԱԴՐՈՒԹՅՈՒՆ", "ԲԻԶՆԵՍ", "ԲՆԱՊԱՀՊԱՆԱԿԱՆ", "ԲՈՒԺՍՊԱՍԱՐԿՈՒՄ", "ԳԱՂՏՆԱԲԱՌ", "ԳԱՆՁԱՊԱՀ", "ԳԱՐԵՋՈՒՐ", "ԳԵՂԱՐՎԵՍՏԱԿԱՆ", "ԳԻՏԱԿԱՆ", "ԳԼՈՒԽԳՈՐծՈՑ", "ԳՈՎԱԶԴԱՅԻՆ", "ԳՈՒՆԱՎՈՐՈՒՄ", "ԳՐԱԴԱՐԱՆԱՎԱՐ", "ԳՐԱԿԱՆՈՒԹՅՈՒՆ", "ԴԱՀԼԻՃ", "ԴԱՄԲԱՐԱՆ", "ԴԱՇՆԱՄՈՒՐ", "ԴԱՍԱԽՈՍ", "ԴԱտԱՎՈՐ", "ԴԱՐՊԱՍԱՊԱՀ", "ԴԵՂԱՏՈՒՆ", "ԴԵՍՊԱՆԱՏՈՒՆ", "ԴԻԱԳՐԱՄ", "ԴԻՄԱՀԱՐԴԱՐՈՒՄ", "ԴԻՎԱՆԱԳԻՏՈՒԹՅՈՒՆ", "ԴՐԱՄԱՏՈՒՆ", "ԵԿԱՄՈՒՏ", "ԵԿԵՂԵՑԻ", "ԵՂԱՆԱԿ", "ԵՐԱԺԻՇՏ", "ԵՐԿՐԱԲԱՆ", "ԵՐԿՐԱՉԱՓՈՒԹՅՈՒՆ", "ԵՐՋԱՆԿՈՒԹՅՈՒՆ", "ԶԱՆԳՎԱԾԱՅԻՆ", "ԶԱՐԳԱՑՈՒՄ", "ԶԲՈՍԱՇՐՋԻԿ", "ԶԻՆՎՈՐԱԿԱՆ", "ԶՈՒԳԱՀԵՌ", "ԷՎՈԼՅՈՒՑԻԱ", "ԸՆԴՈՒՆԵԼՈՒԹՅՈՒՆ", "ԸՆՏԱՆԵԿԱՆ", "ԹԱԳԱՎՈՐՈՒԹՅՈՒՆ", "ԹԱՐԳՄԱՆԻՉ", "ԹԱՓՈՆՆԵՐ", "ԹԵՐԹ", "ԹՎԱՅԻՆ", "ԻՆՏԵՐՆԵՏ", "ԻՐԱՎԱԲԱՆ", "ԼԱԲՈՐԱՏՈՐԻԱ", "ԼԱՎԱՏԵՍՈՒԹՅՈՒՆ", "ԼԵԶՎԱԲԱՆ", "ԼՈՒՍԱՎՈՐՈՒԹՅՈՒՆ", "ԽԱՂԱՂԱՍԵՐ", "ԽԱՀԱՆՈՑ", "ԽԵԼԱՑԻ", "ԽՄԲԱԳԻՐ", "ԽՈՐՀՐԴԱՏՈՒ", "ԾԱՆՈԹՈՒԹՅՈՒՆ", "ԾԱՌԱՅՈՒԹՅՈՒՆ", "ԾՐԱԳՐԱՎՈՐՈՂ", "ԿԱԶՄԱԿԵՐՊՈՒԹՅՈՒՆ", "ԿԱԼՈՐԻԱ", "ԿԱՆՈՆԱԴՐՈՒԹՅՈՒՆ", "ԿԱՊԻՏԱԼ", "ԿԱՐԱՎԱՐՈՒԹՅՈՒՆ", "ԿԵՆՍԱԲԱՆ", "ԿԻՆՈԹԱՏՐՈՆ", "ԿՈՄՊՈԶԻՏՈՐ", "ԿՐԹԱԿԱՆ", "ՀԱԳՈՒՍՏ", "ՀԱՄԱԳՈՐԾԱԿՑՈՒԹՅՈՒՆ", "ՀԱՄԱԿԱՐԳՈՒՄ", "ՀԱՄԱՅՆՔ", "ՀԱՄԱՐՁԱԿ", "ՀԱՅՏԱՐԱՐՈՒԹՅՈՒՆ", "ՀԱՆԴԻՊՈՒՄ", "ՀԱՆԴԻՍԱՏԵՍ", "ՀԱՆՃԱՐԵՂ", "ՀԱՇՎԱՊԱՀՈՒԹՅՈՒՆ", "ՀԱՍԱՐԱԿՈՒԹՅՈՒՆ", "ՀԱՎԱՍԱՐՈՒԹՅՈՒՆ", "ՀԵՌՈՒՍՏԱՑՈՒՅՑ", "ՀԵՏԱԶՈՏՈՒԹՅՈՒՆ", "ՀԵՏԱՔՐՔԻՐ", "ՀԻՎԱՆԴԱՆՈՑ", "ՀՈԳԵԲԱՆ", "ՀՈՒՇԱՐՁԱՆ", "ՁԵՌԱԳԻՐ", "ՁԵՌՆԱՐԿ", "ՁՈՒԿ", "ՂԵԿԱՎԱՐ", "ՃԱՆԱՊԱՐՀ", "ՃԱՐՏԱՐԱԳԵՏ", "ՄԱԿԱՐԴԱԿ", "ՄԱԿԱՐՈՆ", "ՄԱՀՃԱԿԱԼ", "ՄԱՆՐԱԴԻՏԱԿ", "ՄԱՐԴԱՍԻՐՈՒԹՅՈՒՆ", "ՄԱՐԶԱԴԱՇՏ", "ՄԱՐՏԱԿԱՆ", "ՄԵՔԵՆԱՅԱԿԱՆ", "ՄԻՋՈՑԱՌՈՒՄ", "ՄՇԱԿՈՒՅԹ", "ՄՈԼՈՐԱԿ", "ՆԱԽԱԳԱՀ", "ՆԱԽԱԳԻԾ", "ՆԱԽԱՃԱՇ", "ՆԵՐԿԱՅԱՑՈՒՄ", "ՆԿԱՐՉՈՒԹՅՈՒՆ", "ՆՈՐՈՒԹՅՈՒՆ", "ՆՎԱԳԱԽՈՒՄԲ", "ՇԱԲԱԹԱԿԱՆ", "ՇԱՀՈՒՅԹ", "ՇԵՆՔ", "ՇԻՆԱՐԱՐ", "ՇՆՈՐՀԱԿԱԼ", "ՈԼՈՐՏ", "ՈՍՏԻԿԱՆ", "ՈՒՂԵՎՈՐ", "ՈՒՍՈՒՑԻՉ", "ՉԱՓԱՆԻՇ", "ՊԱՀԱՆՋԱՐԿ", "ՊԱՇՏՊԱՆՈՒԹՅՈՒՆ", "ՊԱՏԱՍԽԱՆ", "ՊԱՏՐԱՍՏՈՒՄ", "ՊԱՐԱՊՄՈՒՆՔ", "ՊԵՏՈՒԹՅՈՒՆ", "ՊՐՈՖԵՍՈՐ", "ՋԵՐՄՈՒԹՅՈՒՆ", "ՌԵԱԿՑԻԱ", "ՍԱՀՄԱՆԱԴՐԱԿԱՆ", "ՍԵՓԱԿԱՆՈՒԹՅՈՒՆ", "ՍՏԵՂծԱԳՈՐԾ", "ՎԱՐՈՐԴ", "ՎԻՃԱԿԱԳՐՈՒԹՅՈՒՆ", "ՎԻՐԱԲՈՒԺ", "ՏԱՍՆԱՄՅԱԿ", "ՏԱՐԱԾԱՇՐՋԱՆ", "ՏԵՂԵԿԱՏՎՈՒԹՅՈՒՆ", "ՏԵՍԱՆՅՈՒԹ", "ՏՈՆԱԿԱՆ", "ՏՈՒՐԻԶՄ", "ՑՈՒՑԱԿ", "ՈՒՐԱԽՈՒԹՅՈՒՆ", "ՓՈՓՈԽՈՒԹՅՈՒՆ", "ՔԱՂԱՔԱՑԻ", "ՔԻՄԻԱԿԱՆ", "ՕԳՏԱԿԱՐ", "ՖԻԶԻԿԱ", "ՖՈՒՏԲՈԼԻՍՏ"
         ];
 
         function splitArmenian(word) {
@@ -176,7 +191,7 @@
         function fillCard(card) {
             const words = getWordsForPlayer();
             card.querySelectorAll('.row').forEach(r => r.remove());
-            card.classList.remove('winner-glow');
+            card.classList.remove('winner-glow', 'frozen', 'playoff-participant');
             words.forEach(word => {
                 const row = document.createElement('div');
                 row.className = 'row';
@@ -234,7 +249,7 @@
             const alphaEl = document.getElementById(`alpha-${letter}`);
             if(alphaEl) alphaEl.classList.add('letter-used');
 
-            document.querySelectorAll('.box').forEach(box => {
+            document.querySelectorAll('.card:not(.frozen) .box').forEach(box => {
                 if (box.dataset.letter === letter) box.classList.add('found');
             });
             checkWinner();
@@ -244,7 +259,7 @@
             let winners = [];
             let nearWinDetected = false;
 
-            document.querySelectorAll('.card').forEach(player => {
+            document.querySelectorAll('.card:not(.frozen)').forEach(player => {
                 const boxes = player.querySelectorAll('.box');
                 const uniqueToFind = new Set();
                 boxes.forEach(b => uniqueToFind.add(b.dataset.letter));
@@ -252,29 +267,52 @@
                 const foundUnique = new Set();
                 player.querySelectorAll('.box.found').forEach(b => foundUnique.add(b.dataset.letter));
 
-                // Ստուգում ենք՝ արդյոք մնացել է ճիշտ 1 տառ
                 if (uniqueToFind.size - foundUnique.size === 1) {
                     nearWinDetected = true;
                 }
 
                 if (uniqueToFind.size > 0 && uniqueToFind.size === foundUnique.size) {
-                    winners.push(player.querySelector('.player-name').innerText);
+                    winners.push(player);
                     player.classList.add('winner-glow');
                 }
             });
 
-            // Եթե ինչ-որ մեկին մնացել է 1 տառ, անջատում ենք ավտոն
             if (nearWinDetected && autoInterval) {
                 stopAuto();
             }
 
             if (winners.length > 0) {
                 stopAuto();
-                document.getElementById('winners-list').innerHTML = winners.join("<br>");
+                const winnerNames = winners.map(w => w.querySelector('.player-name').innerText);
+                document.getElementById('winners-list').innerHTML = winnerNames.join("<br>");
                 document.getElementById('overlay').style.display = "block";
                 document.getElementById('winner-modal').style.display = "block";
             }
         }
+
+        document.getElementById('playoff-btn').onclick = function() {
+            const currentWinners = document.querySelectorAll('.card.winner-glow');
+            if (currentWinners.length < 1) {
+                alert("Դեռ հաղթող չկա փլեյ-օֆֆի համար");
+                return;
+            }
+
+            document.querySelectorAll('.card').forEach(card => {
+                if (![...currentWinners].includes(card)) {
+                    card.classList.add('frozen');
+                    card.classList.remove('playoff-participant', 'winner-glow');
+                } else {
+                    card.classList.add('playoff-participant');
+                    card.classList.remove('winner-glow', 'frozen');
+                }
+            });
+
+            setTimeout(() => {
+                availableLetters = [...initialAlphabet];
+                initAlphabetDisplay();
+                                document.querySelectorAll('.playoff-participant .box').forEach(b => b.classList.remove('found'));
+            }, 1000);
+        };
 
         function stopAuto() {
             clearInterval(autoInterval);
@@ -297,7 +335,10 @@
             document.getElementById('current-letter').innerText = "-";
             document.querySelectorAll('.mini-letter-circle').forEach(c => c.innerText = "-");
             initAlphabetDisplay();
-            document.querySelectorAll('.card').forEach(fillCard);
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('frozen', 'playoff-participant', 'winner-glow');
+                fillCard(card);
+            });
             stopAuto();
         };
 
@@ -307,7 +348,7 @@
             } else { 
                 autoInterval = setInterval(pickLetter, 1000); 
                 this.style.boxShadow = "0 0 15px #fff"; 
-                this.style.background = "#ff4d4d"; // Դառնում է կարմիր, երբ ակտիվ է
+                this.style.background = "#ff4d4d";
             }
         };
 
